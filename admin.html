@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="th" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบหลังบ้าน - จัดการคำสั่งซื้อ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f1f5f9;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased flex flex-col min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-slate-900 text-white sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="font-bold text-xl tracking-tight flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-blue-400"></i> Admin Dashboard
+                </div>
+                <div>
+                    <a href="index.html" class="text-slate-300 hover:text-white transition text-sm">
+                        <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> ดูหน้าเว็บ
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow py-8 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-slate-800">รายการคำสั่งซื้อหนังสือ</h1>
+                <button onclick="fetchOrders()" class="bg-blue-100 text-blue-700 hover:bg-blue-200 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> รีเฟรชข้อมูล
+                </button>
+            </div>
+
+            <!-- Dashboard Container -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px] relative">
+                
+                <!-- 1. Loading State -->
+                <div id="loadingState" class="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10">
+                    <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i>
+                    <p class="text-slate-500 font-medium animate-pulse">กำลังโหลดข้อมูลจากฐานข้อมูล...</p>
+                </div>
+
+                <!-- 2. Error State -->
+                <div id="errorState" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center z-10 text-center p-6">
+                    <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-2">ไม่สามารถดึงข้อมูลได้</h3>
+                    <p id="errorMessage" class="text-slate-500 mb-6 max-w-md">เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล</p>
+                    <button onclick="fetchOrders()" class="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-800 transition">
+                        ลองใหม่อีกครั้ง
+                    </button>
+                </div>
+
+                <!-- 3. Empty State -->
+                <div id="emptyState" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center z-10 text-center p-6">
+                    <div class="w-20 h-20 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-box-open text-3xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">ยังไม่มีรายการสั่งซื้อ</h3>
+                    <p class="text-slate-500">เมื่อมีลูกค้ากดสั่งซื้อทางหน้าเว็บ ข้อมูลจะแสดงที่นี่โดยอัตโนมัติ</p>
+                </div>
+
+                <!-- 4. Data State (Table) -->
+                <div id="dataState" class="hidden w-full overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-sm text-slate-500 uppercase tracking-wider">
+                                <th class="p-4 font-semibold w-12 text-center">#</th>
+                                <th class="p-4 font-semibold">วันเวลาที่สั่ง</th>
+                                <th class="p-4 font-semibold">ข้อมูลลูกค้า</th>
+                                <th class="p-4 font-semibold">แพ็กเกจที่เลือก</th>
+                                <th class="p-4 font-semibold">การจัดส่ง</th>
+                                <th class="p-4 font-semibold text-right">ยอดรวม</th>
+                                <th class="p-4 font-semibold text-center">สลิปโอนเงิน</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderTableBody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Rows will be injected here via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Image Preview Modal -->
+    <div id="imageModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4 opacity-0 transition-opacity" onclick="closeModal()">
+        <div class="relative max-w-3xl w-full bg-white rounded-2xl p-2 shadow-2xl transform scale-95 transition-transform" onclick="event.stopPropagation()">
+            <button onclick="closeModal()" class="absolute -top-4 -right-4 w-10 h-10 bg-white rounded-full shadow-lg text-slate-500 hover:text-red-500 flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <img id="modalImage" src="" alt="Slip Preview" class="w-full h-auto max-h-[85vh] object-contain rounded-xl">
+            <div class="p-4 text-center">
+                <a id="modalDownload" href="#" target="_blank" class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
+                    <i class="fa-solid fa-external-link-alt"></i> เปิดรูปต้นฉบับ
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Supabase Client
+        const supabaseUrl = 'https://uawuauxvlymsxieezfdu.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhd3VhdXh2bHltc3hpZWV6ZmR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDg0ODIsImV4cCI6MjA5NzU4NDQ4Mn0.zLW9srB-Fqx-PcH4LxVmZByaaVyYtOIaZ5SUq6FZTcc';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+        // UI State Management
+        const UI = {
+            loading: document.getElementById('loadingState'),
+            error: document.getElementById('errorState'),
+            empty: document.getElementById('emptyState'),
+            data: document.getElementById('dataState'),
+            tbody: document.getElementById('orderTableBody'),
+            errorMessage: document.getElementById('errorMessage'),
+            
+            showLoading() {
+                this.loading.classList.remove('hidden');
+                this.error.classList.add('hidden');
+                this.empty.classList.add('hidden');
+                this.data.classList.add('hidden');
+            },
+            showError(msg) {
+                this.loading.classList.add('hidden');
+                this.error.classList.remove('hidden');
+                this.empty.classList.add('hidden');
+                this.data.classList.add('hidden');
+                this.errorMessage.textContent = msg;
+            },
+            showEmpty() {
+                this.loading.classList.add('hidden');
+                this.error.classList.add('hidden');
+                this.empty.classList.remove('hidden');
+                this.data.classList.add('hidden');
+            },
+            showData() {
+                this.loading.classList.add('hidden');
+                this.error.classList.add('hidden');
+                this.empty.classList.add('hidden');
+                this.data.classList.remove('hidden');
+            }
+        };
+
+        // Format Date to Thai locale
+        function formatThaiDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('th-TH', { 
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        // Fetch Data from Supabase
+        async function fetchOrders() {
+            UI.showLoading();
+            
+            try {
+                // Fetch data, sort by newest first
+                const { data, error } = await supabaseClient
+                    .from('book_orders')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    throw new Error(error.message);
+                }
+
+                if (!data || data.length === 0) {
+                    UI.showEmpty();
+                    return;
+                }
+
+                renderTable(data);
+                UI.showData();
+
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                
+                // User-friendly error messages
+                let msg = "เกิดข้อผิดพลาดในการดึงข้อมูล โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต";
+                if (err.message.includes("permission denied") || err.message.includes("row level security")) {
+                    msg = "ไม่ได้รับอนุญาตให้ดึงข้อมูล (RLS Policy) กรุณาตั้งค่าสิทธิ์การอ่านข้อมูลใน Supabase ให้เรียบร้อยครับ";
+                }
+                
+                UI.showError(msg);
+            }
+        }
+
+        // Render Table Rows
+        function renderTable(orders) {
+            UI.tbody.innerHTML = '';
+            
+            orders.forEach((order, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition group";
+                
+                // Package Label formatting
+                let pkgLabel = `<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">${order.package}</span>`;
+                if(order.package === 'fullset') {
+                    pkgLabel = `<span class="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-medium">ครบชุด</span>`;
+                } else if(order.package === 'vol1') {
+                    pkgLabel = `<span class="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-medium">เล่ม 1</span>`;
+                } else if(order.package === 'vol2') {
+                    pkgLabel = `<span class="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-medium">เล่ม 2</span>`;
+                }
+
+                // Delivery formatting
+                let deliveryHtml = '';
+                if(order.delivery_method === 'shipping') {
+                    deliveryHtml = `
+                        <div class="flex items-center gap-1 text-blue-600 font-medium mb-1"><i class="fa-solid fa-truck-fast text-xs"></i> จัดส่งถึงบ้าน</div>
+                        <div class="text-xs text-slate-500 whitespace-normal min-w-[200px]">${order.shipping_address || '-'}</div>
+                    `;
+                } else {
+                    deliveryHtml = `<div class="flex items-center gap-1 text-green-600 font-medium"><i class="fa-solid fa-hand-holding-hand text-xs"></i> รับเองที่คณะ</div>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="p-4 text-center text-slate-400">${orders.length - index}</td>
+                    <td class="p-4 whitespace-nowrap">
+                        <div class="font-medium text-slate-800">${formatThaiDate(order.created_at)}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="font-bold text-slate-800 mb-1">${order.customer_name}</div>
+                        <div class="text-xs text-slate-500 flex flex-col gap-1">
+                            <span><i class="fa-solid fa-phone w-3"></i> ${order.phone}</span>
+                            <span><i class="fa-solid fa-envelope w-3"></i> ${order.email}</span>
+                        </div>
+                    </td>
+                    <td class="p-4 whitespace-nowrap">${pkgLabel}</td>
+                    <td class="p-4 align-top">${deliveryHtml}</td>
+                    <td class="p-4 text-right font-bold text-slate-800 whitespace-nowrap">฿${order.total_amount.toLocaleString()}</td>
+                    <td class="p-4 text-center">
+                        <button onclick="openModal('${order.slip_url}')" class="bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 w-10 h-10 rounded-lg flex items-center justify-center transition" title="ดูสลิป">
+                            <i class="fa-solid fa-image"></i>
+                        </button>
+                    </td>
+                `;
+                UI.tbody.appendChild(tr);
+            });
+        }
+
+        // Modal Logic for viewing slip
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        const modalLink = document.getElementById('modalDownload');
+
+        function openModal(imgUrl) {
+            modalImg.src = imgUrl;
+            modalLink.href = imgUrl;
+            modal.classList.remove('hidden');
+            // Small delay to trigger transition
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.querySelector('div').classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            modal.classList.add('opacity-0');
+            modal.querySelector('div').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modalImg.src = '';
+            }, 300); // match transition duration
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', fetchOrders);
+    </script>
+</body>
+</html>
