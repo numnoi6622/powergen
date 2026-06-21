@@ -8,6 +8,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Check login status BEFORE rendering
+        if (sessionStorage.getItem('isAdmin') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
     <style>
         body {
             font-family: 'Prompt', sans-serif;
@@ -24,10 +30,13 @@
                 <div class="font-bold text-xl tracking-tight flex items-center gap-2">
                     <i class="fa-solid fa-chart-line text-blue-400"></i> Admin Dashboard
                 </div>
-                <div>
-                    <a href="index.html" class="text-slate-300 hover:text-white transition text-sm">
+                <div class="flex items-center gap-4">
+                    <a href="index.html" class="text-slate-300 hover:text-white transition text-sm hidden sm:inline-flex items-center">
                         <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> ดูหน้าเว็บ
                     </a>
+                    <button onclick="logout()" class="bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-2 border border-red-500/20 hover:border-red-500">
+                        <i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ
+                    </button>
                 </div>
             </div>
         </div>
@@ -278,6 +287,12 @@
                 modal.classList.add('hidden');
                 modalImg.src = '';
             }, 300); // match transition duration
+        }
+
+        // Logout Logic
+        function logout() {
+            sessionStorage.removeItem('isAdmin');
+            window.location.href = 'login.html';
         }
 
         // Initialize
