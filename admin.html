@@ -95,6 +95,7 @@
                                 <th class="p-4 font-semibold">การจัดส่ง</th>
                                 <th class="p-4 font-semibold text-right">ยอดรวม</th>
                                 <th class="p-4 font-semibold text-center">สลิปโอนเงิน</th>
+                                <th class="p-4 font-semibold text-center">สถานะออเดอร์</th>
                             </tr>
                         </thead>
                         <tbody id="orderTableBody" class="divide-y divide-slate-100 text-sm">
@@ -239,6 +240,27 @@
                     deliveryHtml = `<div class="flex items-center gap-1 text-green-600 font-medium"><i class="fa-solid fa-hand-holding-hand text-xs"></i> รับเองที่คณะ</div>`;
                 }
 
+                // Status formatting
+                let currentStatus = order.status || 'pending';
+                let statusColors = {
+                    'pending': 'bg-amber-100 text-amber-700 border-amber-200',
+                    'processing': 'bg-blue-100 text-blue-700 border-blue-200',
+                    'shipped': 'bg-purple-100 text-purple-700 border-purple-200',
+                    'completed': 'bg-green-100 text-green-700 border-green-200',
+                    'cancelled': 'bg-red-100 text-red-700 border-red-200'
+                };
+                let selectColor = statusColors[currentStatus] || statusColors['pending'];
+                
+                let trackingHtml = '';
+                if(currentStatus === 'shipped' || order.tracking_number) {
+                    trackingHtml = `
+                    <div class="mt-2 text-xs">
+                        <input type="text" placeholder="เลขพัสดุ..." value="${order.tracking_number || ''}" 
+                            onblur="updateTracking('${order.id}', this.value)"
+                            class="w-full text-center border border-slate-200 rounded px-2 py-1 outline-none focus:border-brand-500 bg-white">
+                    </div>`;
+                }
+
                 tr.innerHTML = `
                     <td class="p-4 text-center text-slate-400">${orders.length - index}</td>
                     <td class="p-4 whitespace-nowrap">
@@ -258,6 +280,16 @@
                         <button onclick="openModal('${order.slip_url}')" class="bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 w-10 h-10 rounded-lg flex items-center justify-center transition" title="ดูสลิป">
                             <i class="fa-solid fa-image"></i>
                         </button>
+                    </td>
+                    <td class="p-4 text-center">
+                        <select onchange="updateStatus('${order.id}', this.value)" class="text-xs font-medium border rounded-lg px-2 py-1.5 outline-none cursor-pointer ${selectColor}">
+                            <option value="pending" ${currentStatus==='pending'?'selected':''}>🟡 รอดำเนินการ</option>
+                            <option value="processing" ${currentStatus==='processing'?'selected':''}>🔵 เตรียมจัดส่ง</option>
+                            <option value="shipped" ${currentStatus==='shipped'?'selected':''}>🟣 จัดส่งแล้ว</option>
+                            <option value="completed" ${currentStatus==='completed'?'selected':''}>🟢 เสร็จสิ้น</option>
+                            <option value="cancelled" ${currentStatus==='cancelled'?'selected':''}>🔴 ยกเลิก</option>
+                        </select>
+                        ${trackingHtml}
                     </td>
                 `;
                 UI.tbody.appendChild(tr);
@@ -287,6 +319,37 @@
                 modal.classList.add('hidden');
                 modalImg.src = '';
             }, 300); // match transition duration
+        }
+
+        // Update Order Status
+        async function updateStatus(orderId, newStatus) {
+            try {
+                const { error } = await supabaseClient
+                    .from('book_orders')
+                    .update({ status: newStatus })
+                    .eq('id', orderId);
+                
+                if (error) throw error;
+                // Re-fetch to update colors and UI
+                fetchOrders();
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการอัปเดตสถานะ: ' + err.message);
+                fetchOrders(); // Reset UI
+            }
+        }
+
+        // Update Tracking Number
+        async function updateTracking(orderId, trackingNum) {
+            try {
+                const { error } = await supabaseClient
+                    .from('book_orders')
+                    .update({ tracking_number: trackingNum })
+                    .eq('id', orderId);
+                
+                if (error) throw error;
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการอัปเดตเลขพัสดุ: ' + err.message);
+            }
         }
 
         // Logout Logic
