@@ -6,6 +6,7 @@
     <title>สั่งซื้อเอกสารคำสอน - วิศวกรรมไฟฟ้าแรงสูง</title>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -324,21 +325,89 @@
             }
         }
 
-        // Handle Form Submission (Simulation)
-        function submitOrder(event) {
+        // Initialize Supabase Client
+        const supabaseUrl = 'https://uawuauxvlymsxieezfdu.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhd3VhdXh2bHltc3hpZWV6ZmR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDg0ODIsImV4cCI6MjA5NzU4NDQ4Mn0.zLW9srB-Fqx-PcH4LxVmZByaaVyYtOIaZ5SUq6FZTcc';
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        // Handle Form Submission (Supabase Integration)
+        async function submitOrder(event) {
             event.preventDefault(); // Prevent actual form submission to server
             
-            // In a real app, you would gather formData and send via fetch() here.
-            // For now, we simulate a successful submission by showing the success UI.
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            const originalBtnHtml = submitBtn.innerHTML;
             
-            // Smooth scroll to top
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            
-            // Hide Form, Show Success
-            setTimeout(() => {
-                document.getElementById('orderFormContainer').classList.add('hidden-section');
-                document.getElementById('successMessage').classList.remove('hidden-section');
-            }, 300);
+            try {
+                // 1. Loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่งข้อมูล...';
+                
+                // 2. Gather form data
+                const customerName = document.querySelector('input[placeholder*="นายรักเรียน"]').value;
+                const phone = document.querySelector('input[type="tel"]').value;
+                const email = document.querySelector('input[type="email"]').value;
+                const packageRadio = document.querySelector('input[name="package"]:checked').value;
+                const deliveryRadio = document.querySelector('input[name="delivery"]:checked').value;
+                const addressInput = document.getElementById('addressInput').value;
+                const fileInput = document.getElementById('file-upload');
+                
+                const totalAmount = parseInt(document.getElementById('totalAmount').textContent.replace('฿', ''));
+                
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    throw new Error("กรุณาแนบสลิปโอนเงิน");
+                }
+                const file = fileInput.files[0];
+
+                // 3. Upload Slip to Supabase Storage
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `${fileName}`;
+
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('slips')
+                    .upload(filePath, file);
+
+                if (uploadError) throw new Error("อัปโหลดสลิปไม่สำเร็จ: " + uploadError.message);
+
+                // Get public URL
+                const { data: publicUrlData } = supabase.storage
+                    .from('slips')
+                    .getPublicUrl(filePath);
+                
+                const slipUrl = publicUrlData.publicUrl;
+
+                // 4. Insert data to Supabase Database (book_orders table)
+                const { data: insertData, error: insertError } = await supabase
+                    .from('book_orders')
+                    .insert([
+                        {
+                            customer_name: customerName,
+                            phone: phone,
+                            email: email,
+                            package: packageRadio,
+                            delivery_method: deliveryRadio,
+                            shipping_address: deliveryRadio === 'shipping' ? addressInput : null,
+                            total_amount: totalAmount,
+                            slip_url: slipUrl
+                        }
+                    ]);
+
+                if (insertError) throw new Error("บันทึกข้อมูลไม่สำเร็จ: " + insertError.message);
+
+                // 5. Success UI
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setTimeout(() => {
+                    document.getElementById('orderFormContainer').classList.add('hidden-section');
+                    document.getElementById('successMessage').classList.remove('hidden-section');
+                }, 300);
+
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                // Restore button state
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
+            }
         }
     </script>
 </body>
