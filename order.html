@@ -328,7 +328,7 @@
         // Initialize Supabase Client
         const supabaseUrl = 'https://uawuauxvlymsxieezfdu.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhd3VhdXh2bHltc3hpZWV6ZmR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDg0ODIsImV4cCI6MjA5NzU4NDQ4Mn0.zLW9srB-Fqx-PcH4LxVmZByaaVyYtOIaZ5SUq6FZTcc';
-        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
         // Handle Form Submission (Supabase Integration)
         async function submitOrder(event) {
@@ -363,21 +363,21 @@
                 const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
                 const filePath = `${fileName}`;
 
-                const { data: uploadData, error: uploadError } = await supabase.storage
+                const { data: uploadData, error: uploadError } = await supabaseClient.storage
                     .from('slips')
                     .upload(filePath, file);
 
                 if (uploadError) throw new Error("อัปโหลดสลิปไม่สำเร็จ: " + uploadError.message);
 
                 // Get public URL
-                const { data: publicUrlData } = supabase.storage
+                const { data: publicUrlData } = supabaseClient.storage
                     .from('slips')
                     .getPublicUrl(filePath);
                 
                 const slipUrl = publicUrlData.publicUrl;
 
                 // 4. Insert data to Supabase Database (book_orders table)
-                const { data: insertData, error: insertError } = await supabase
+                const { data: insertData, error: insertError } = await supabaseClient
                     .from('book_orders')
                     .insert([
                         {
