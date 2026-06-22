@@ -110,12 +110,12 @@
 
                             <label class="flex items-center p-4 border-2 border-accent-400 bg-accent-50/30 rounded-xl cursor-pointer hover:bg-accent-50 transition relative overflow-hidden">
                                 <div class="absolute top-0 right-0 bg-accent-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">คุ้มที่สุด</div>
-                                <input type="radio" name="package" value="fullset" class="form-radio h-5 w-5 text-accent-600 focus:ring-accent-500" data-price="790" onchange="calculateTotal()" checked>
+                                <input type="radio" id="fullsetRadio" name="package" value="fullset" class="form-radio h-5 w-5 text-accent-600 focus:ring-accent-500" data-price="790" onchange="calculateTotal()" checked>
                                 <div class="ml-4 flex-grow">
                                     <span class="block font-bold text-slate-900">ครบชุด (เล่ม 1 + เล่ม 2)</span>
-                                    <span class="block text-sm text-slate-500">ประหยัด 110 บาท</span>
+                                    <span id="fullsetSavingsDisplay" class="block text-sm text-slate-500">ประหยัด 110 บาท</span>
                                 </div>
-                                <span class="font-bold text-xl text-accent-600">฿790</span>
+                                <span id="fullsetPriceDisplay" class="font-bold text-xl text-accent-600">฿790</span>
                             </label>
                         </div>
                     </div>
@@ -257,14 +257,33 @@
     </footer>
 
     <script>
-        // Check URL parameters to pre-select package
+        // Initialize logic on page load
         document.addEventListener('DOMContentLoaded', function() {
+            // Pre-order logic
+            const today = new Date();
+            const preorderEndDate = new Date('2026-06-25T23:59:59+07:00'); // Valid until 25 June 2026 23:59
+            
+            const fullsetRadio = document.getElementById('fullsetRadio');
+            const fullsetPriceDisplay = document.getElementById('fullsetPriceDisplay');
+            const fullsetSavingsDisplay = document.getElementById('fullsetSavingsDisplay');
+
+            if (today <= preorderEndDate && fullsetRadio) {
+                fullsetRadio.setAttribute('data-price', '750');
+                if (fullsetPriceDisplay) fullsetPriceDisplay.textContent = '฿750';
+                if (fullsetSavingsDisplay) fullsetSavingsDisplay.innerHTML = 'ประหยัด 150 บาท <span class="text-accent-600 font-bold ml-1">(ราคาพรีออเดอร์ถึง 25 มิ.ย.)</span>';
+            }
+
+            // URL parameter selection logic
             const urlParams = new URLSearchParams(window.location.search);
-            const packageParam = urlParams.get('package');
+            let packageParam = urlParams.get('package');
+            if (packageParam === 'preorder') packageParam = 'fullset';
+            
             if(packageParam) {
                 const radio = document.querySelector(`input[name="package"][value="${packageParam}"]`);
                 if(radio) radio.checked = true;
             }
+
+            // Always calculate total on load
             calculateTotal();
         });
 
